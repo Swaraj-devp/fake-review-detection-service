@@ -7,6 +7,8 @@ import com.fakereview.detection.repository.DetectionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 @Service
 public class DetectionServiceImpl implements DetectionService {
 
@@ -21,18 +23,42 @@ public class DetectionServiceImpl implements DetectionService {
 
         String text = request.getReviewText();
 
-        if (text == null || text.length() < 10) {
+        if (text == null || text.trim().length() < 15) {
             fake = true;
             reason = "Review text too short";
-        } else if (request.getRating() == 5 && text.length() < 20) {
+        }
+
+        else if (request.getRating() == 5 && text.length() < 20) {
             fake = true;
             reason = "High rating with very short review";
-        } else if (text.toLowerCase().contains("best product ever")) {
+        }
+
+        else if (text.toLowerCase().contains("best product ever")) {
             fake = true;
             reason = "Suspicious marketing phrase";
-        } else if (text.toLowerCase().contains("buy now")) {
+        }
+
+        else if (text.toLowerCase().contains("buy now")) {
             fake = true;
             reason = "Promotional content detected";
+        }
+
+        else if (text.matches(".*(.)\\1{4,}.*")) {
+            fake = true;
+            reason = "Suspicious repeated characters detected";
+        }
+
+        else if (text.contains("!!!!!") || text.contains("!!!!")) {
+            fake = true;
+            reason = "Excessive punctuation detected";
+        }
+
+        else if (request.getRating() == 5 &&
+                (text.toLowerCase().contains("bad") ||
+                        text.toLowerCase().contains("worst"))) {
+
+            fake = true;
+            reason = "Rating and review sentiment mismatch";
         }
 
         DetectionLog log = new DetectionLog();
@@ -43,6 +69,7 @@ public class DetectionServiceImpl implements DetectionService {
         log.setRating(request.getRating());
         log.setFake(fake);
         log.setReason(reason);
+        log.setAnalyzedAt(LocalDateTime.now());
 
         detectionRepository.save(log);
 

@@ -5,4 +5,5 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 
 public interface DetectionRepository extends MongoRepository<DetectionLog, String> {
 
+    long countByReviewText(String reviewText);
 }
