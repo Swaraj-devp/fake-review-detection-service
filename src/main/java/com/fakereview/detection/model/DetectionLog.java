@@ -6,6 +6,8 @@ import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @AllArgsConstructor
@@ -27,4 +29,6 @@ public class DetectionLog {
     private boolean fake;
 
     private String reason;
+
+    private LocalDateTime analyzedAt;
 }
