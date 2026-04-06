@@ -1,5 +1,6 @@
 package com.fakereview.detection.service;
 
+import com.fakereview.detection.client.MLClient;
 import com.fakereview.detection.dto.DetectionRequest;
 import com.fakereview.detection.dto.DetectionResponse;
 import com.fakereview.detection.model.DetectionLog;
@@ -8,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Service
 public class DetectionServiceImpl implements DetectionService {
@@ -15,50 +17,46 @@ public class DetectionServiceImpl implements DetectionService {
     @Autowired
     private DetectionRepository detectionRepository;
 
+    @Autowired
+    private MLClient mlClient;
+
     @Override
     public DetectionResponse analyzeReview(DetectionRequest request) {
 
         boolean fake = false;
         String reason = "Genuine Review";
 
-        String text = request.getReviewText();
+        String text = request.getReviewText().toLowerCase();
 
         if (text == null || text.trim().length() < 15) {
             fake = true;
-            reason = "Review text too short";
+            reason = "Review too short";
         }
 
-        else if (request.getRating() == 5 && text.length() < 20) {
+        else if (text.contains("buy now") || text.contains("best product ever")) {
             fake = true;
-            reason = "High rating with very short review";
-        }
-
-        else if (text.toLowerCase().contains("best product ever")) {
-            fake = true;
-            reason = "Suspicious marketing phrase";
-        }
-
-        else if (text.toLowerCase().contains("buy now")) {
-            fake = true;
-            reason = "Promotional content detected";
+            reason = "Promotional / Spam detected";
         }
 
         else if (text.matches(".*(.)\\1{4,}.*")) {
             fake = true;
-            reason = "Suspicious repeated characters detected";
+            reason = "Repeated characters spam";
         }
 
-        else if (text.contains("!!!!!") || text.contains("!!!!")) {
-            fake = true;
-            reason = "Excessive punctuation detected";
-        }
+        else {
+            try {
+                Map<String, Object> mlResponse = mlClient.predict(request);
 
-        else if (request.getRating() == 5 &&
-                (text.toLowerCase().contains("bad") ||
-                        text.toLowerCase().contains("worst"))) {
+                boolean mlFake = (boolean) mlResponse.get("fake");
 
-            fake = true;
-            reason = "Rating and review sentiment mismatch";
+                if (mlFake) {
+                    fake = true;
+                    reason = "ML Model Detected Fake";
+                }
+
+            } catch (Exception e) {
+                reason = "ML service unavailable, fallback to rules";
+            }
         }
 
         DetectionLog log = new DetectionLog();
@@ -75,5 +73,4 @@ public class DetectionServiceImpl implements DetectionService {
 
         return new DetectionResponse(fake, reason);
     }
-
 }
